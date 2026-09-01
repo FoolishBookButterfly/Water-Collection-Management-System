@@ -275,7 +275,7 @@
         let appState = { isLoggedIn: false, currentView: 'occupant', occupants: [], purchases: [], collectionDates: [], totals: {}, dateAmounts: {} };
 
         function isFirebaseConfigured() {
-            return Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+            return Boolean(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.databaseURL);
         }
 
         function setSyncStatus(text, colorClass) {
@@ -356,17 +356,24 @@
         }
 
         async function initializeApp() {
-            const saved = localStorage.getItem('dormWaterApp');
-            appState = saved ? defaultAppState(JSON.parse(saved)) : defaultAppState(SEED_DATA);
+            try {
+                const saved = localStorage.getItem('dormWaterApp');
+                appState = saved ? defaultAppState(JSON.parse(saved)) : defaultAppState(SEED_DATA);
+            } catch (err) {
+                console.error(err);
+                appState = defaultAppState(SEED_DATA);
+            }
 
-            if (!isFirebaseConfigured()) {
+            showMainApp();
+            if (appState.isLoggedIn) switchView('admin');
+
+            if (!isFirebaseConfigured() || typeof firebase === 'undefined') {
                 setSyncStatus('Local only — add Firebase config to share with other devices', 'text-amber-600');
-                showMainApp();
                 return;
             }
 
             try {
-                firebase.initializeApp(FIREBASE_CONFIG);
+                firebase.initializeApp(firebaseConfig);
                 dbRef = firebase.database().ref(CLOUD_PATH);
                 setSyncStatus('Connecting…', 'text-gray-500');
                 const snap = await dbRef.once('value');
@@ -374,6 +381,7 @@
                     lastCloudJson = snap.val().json;
                     applySharedPayload(JSON.parse(lastCloudJson));
                     cacheLocally();
+                    refreshAllUI();
                 } else {
                     lastCloudJson = JSON.stringify(getSharedPayload());
                     await dbRef.set({ json: lastCloudJson, updatedAt: Date.now() });
@@ -394,9 +402,6 @@
                 console.error(err);
                 setSyncStatus('Cloud unavailable — using this device only', 'text-red-600');
             }
-
-            showMainApp();
-            if (appState.isLoggedIn) switchView('admin');
         }
 
         function openLoginScreen() { document.getElementById('loginScreen').classList.remove('hidden'); }
