@@ -37,6 +37,7 @@
                         <div>
                             <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Dorm Water</h1>
                             <p class="text-xs text-gray-500">Collection Management System</p>
+                            <p id="syncStatus" class="text-xs text-amber-600 mt-0.5">Checking sync…</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -246,17 +247,156 @@
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script>
         const ADMIN_PASSWORD = "dorm2026";
+
+        // Paste the firebaseConfig object from Firebase Console → Project settings → Your apps.
+        // Leave these empty until then; the app still works, but only on this browser.
+        const firebaseConfig = {
+            apiKey: "AIzaSyCcBPMqe63Jw_dbe0fBUgkyKYzJadeO6Cc",
+            authDomain: "zmmh-water.firebaseapp.com",
+            databaseURL: "https://zmmh-water-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "zmmh-water",
+            storageBucket: "zmmh-water.firebasestorage.app",
+            messagingSenderId: "831592545074",
+            appId: "1:831592545074:web:7ab5631797328d0ebc352b",
+            measurementId: "G-38GE37JT6F"
+            };
+
+        const CLOUD_PATH = 'dormWaterApp';
+        let dbRef = null;
+        let applyingRemote = false;
+        let lastCloudJson = '';
+        let persistTimer = null;
         const SEED_DATA = {"occupants":[{"id":"occ_3","no":1,"surname":"MANANGGO","firstName":"MARCO I.","course":"BSDC-4","room":"Cairo","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_4","no":2,"surname":"MALINAO","firstName":"JOHN RYLIE F.","course":"BSMB-1","room":"Cairo","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_5","no":3,"surname":"LLANO","firstName":"EMMANUEL","course":"BSMB-1","room":"Cairo","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_6","no":4,"surname":"FELERCA","firstName":"JONATHAN","course":"BSBiotech-1","room":"Cairo","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_8","no":6,"surname":"SANCHEZ","firstName":"GERALD B.","course":"BSBiotech-4","room":"Sydney","remarks":"Big Brod.","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_9","no":7,"surname":"ESTRELLADO","firstName":"JOHN NIÑO E.","course":"BS Bio-1","room":"Sydney","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_10","no":8,"surname":"PEÑONES","firstName":"RENZ T.","course":"BSS-1","room":"Sydney","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_11","no":9,"surname":"REGACION","firstName":"JAY-R D.","course":"BSMath-1","room":"Sydney","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_13","no":11,"surname":"ABRANTES","firstName":"RAINIER D.","course":"BSFT-4","room":"Concord","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_14","no":12,"surname":"POLANGCUS","firstName":"MARK OWEN V.","course":"BSMet-1","room":"Concord","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_15","no":13,"surname":"POLANGCUS","firstName":"IVAN RAY V.","course":"ABLit-1","room":"Concord","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_16","no":14,"surname":"FORTALIZA","firstName":"KYLE ALEXIS R.","course":"BSMB-1","room":"Concord","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_21","no":19,"surname":"SENDICO","firstName":"MANACE C.","course":"BSEcon-3","room":"Boston","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_22","no":20,"surname":"MAYOR","firstName":"HELED B.","course":"BSEcon-1","room":"Boston","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_23","no":21,"surname":"DIANON","firstName":"JINCKIN A.","course":"BSES-1","room":"Boston","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_24","no":22,"surname":"MASIAS","firstName":"LEONARD","course":"BSES-1","room":"Boston","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_26","no":24,"surname":"TROCINO","firstName":"ALLEN","course":"BSA-4 PProt","room":"Bangkok","remarks":"Big Brod.","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_27","no":25,"surname":"BATASOLO","firstName":"MARK WILSON A.","course":"BSA-1","room":"Bangkok","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_28","no":26,"surname":"CABREROS","firstName":"JYMS REYNOLD B.","course":"BSCS-1","room":"Bangkok","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_29","no":27,"surname":"SOSMEÑA","firstName":"EFREN S.","course":"BSMath-1","room":"Bangkok","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_31","no":29,"surname":"CANO","firstName":"JESTER B.","course":"BCAEd-4","room":"Athens","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_32","no":30,"surname":"JAVELLIO","firstName":"JOHN LOURIENCE G.","course":"BSDC-1","room":"Athens","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_33","no":31,"surname":"MARASIGAN","firstName":"REXIEL B.","course":"ABELS-1","room":"Athens","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_34","no":32,"surname":"OMAMBAC","firstName":"REX EMMANUEL C.","course":"BEED-1","room":"Athens","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_36","no":34,"surname":"LADARAN","firstName":"JOHN LAWRENCE N.","course":"BSTM-4","room":"Beijing","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_37","no":35,"surname":"BULGADO","firstName":"JAMES CHRISTIAN D.","course":"ABPhilo-2","room":"Beijing","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_38","no":36,"surname":"MARKINES","firstName":"LUKE ANTHONY B.","course":"BSBiotech-3","room":"Beijing","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_39","no":37,"surname":"GERONA","firstName":"FHIEL GEM DANIELLE","course":"BSEd-2 Math","room":"Beijing","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_40","no":38,"surname":"VALDEZ","firstName":"JOHN LAURENCE E.","course":"BSA-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_41","no":39,"surname":"GLORIOSO","firstName":"DANIEL JUNE G.","course":"BSA-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_42","no":40,"surname":"COLIS","firstName":"JOHN KHIN O.","course":"BSABE-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_43","no":41,"surname":"BERAL","firstName":"FRANCIS TROY S.","course":"BSABE-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_44","no":42,"surname":"PUSA","firstName":"NHOA B.","course":"BSABE-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_45","no":43,"surname":"TAPAYA","firstName":"JOHN DY R.","course":"BSA-1","room":"Beijing","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_47","no":45,"surname":"PONO","firstName":"EREK S.","course":"BSME-4","room":"Taipei","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_48","no":46,"surname":"VERZOSA","firstName":"ALDEMAR JR. M.","course":"BSMet-3","room":"Taipei","remarks":"Asst Big Brod.","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_49","no":47,"surname":"ABELA","firstName":"JEREUS ZHANJU E.","course":"BSMet-1","room":"Taipei","remarks":"","payments":{"2026-08-11":"excused","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_50","no":48,"surname":"PONO","firstName":"EFREN S., JR.","course":"BSA-1","room":"Taipei","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_51","no":49,"surname":"MAGSANAY","firstName":"YVO E.","course":"BSA-1","room":"Taipei","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_52","no":50,"surname":"MAGNANAO","firstName":"JESRYL JAY G.","course":"BSS-1","room":"Taipei","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_54","no":52,"surname":"CABAHUG","firstName":"RUFINO N. III","course":"BSBiotech-4","room":"Brussels","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_55","no":53,"surname":"AGUIRRE","firstName":"JOSHUA Z.","course":"BSED-3 Science","room":"Brussels","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_56","no":54,"surname":"SUBAAN","firstName":"JOHN LOUIE","course":"BSA-1","room":"Brussels","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_57","no":55,"surname":"CABIDOG","firstName":"JOHN KINLY E.","course":"BSME-1","room":"Brussels","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_58","no":56,"surname":"ARCOSIBA","firstName":"RICO A.","course":"BSCE-1","room":"Brussels","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_59","no":57,"surname":"ESCAÑO","firstName":"JUANITO T.","course":"BSA-1","room":"Brussels","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_61","no":59,"surname":"ACUP","firstName":"MARK ANDREW E.","course":"BSChem-4","room":"Havana","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_62","no":60,"surname":"MACO","firstName":"MICHAEL FRANZ B.","course":"BSA-4","room":"Havana","remarks":"Asst Big Brod.","payments":{"2026-08-11":"excused","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_63","no":61,"surname":"LUFRANGCO","firstName":"PAUL MATTHEW M.","course":"BSA-1","room":"Havana","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_64","no":62,"surname":"LUFRANGCO","firstName":"JAY VINCENT M.","course":"BSF-1","room":"Havana","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_65","no":63,"surname":"CORPEZ","firstName":"AKI L.","course":"ABLit-1","room":"Havana","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_66","no":64,"surname":"YANONG","firstName":"SAIMHER J.","course":"ABELS-1","room":"Havana","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_68","no":66,"surname":"MONTES","firstName":"ADDEUS M.","course":"BSF-4","room":"Riyadh","remarks":"Big Brod.","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_69","no":67,"surname":"VISCA","firstName":"RONNIE I.","course":"BSFT-4","room":"Riyadh","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_70","no":68,"surname":"TUNGAL","firstName":"REYSAN JAY V.","course":"BSEd-3 Math","room":"Riyadh","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_71","no":69,"surname":"CORINGAO","firstName":"RENZ ANTHONY","course":"BSCS-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_72","no":70,"surname":"CRISTO","firstName":"ARCHIE T.","course":"BSCS-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_73","no":71,"surname":"RISOS","firstName":"ARVIN C.","course":"BSEd-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_74","no":72,"surname":"CARIÑO","firstName":"JOHN GABRIEL L.","course":"BCAEd-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_75","no":73,"surname":"CAPIONES","firstName":"JOHN CLEO S.","course":"BPEd-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_76","no":74,"surname":"CABULONG","firstName":"RONNIE RUIZ","course":"BCAEd-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_77","no":75,"surname":"BENITO","firstName":"JIMNIER R.","course":"BSFT-1","room":"Riyadh","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_80","no":78,"surname":"GALIA","firstName":"IVAN JUDE","course":"BSBiotech-4","room":"Jakarta","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_81","no":79,"surname":"LLANTADA","firstName":"JOHANESE O.","course":"BSCS-3","room":"Jakarta","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_82","no":80,"surname":"ABASOLO","firstName":"JOHN MANUEL M.","course":"BSABE-2","room":"Jakarta","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_83","no":81,"surname":"MIAO","firstName":"JHUVANE","course":"BSMath-1","room":"Jakarta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_84","no":82,"surname":"BALBARINO","firstName":"MELROE L.","course":"BSME-1","room":"Jakarta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_85","no":83,"surname":"GADITANO","firstName":"MARTINES BRYANT B.","course":"BSBiotech-1","room":"Jakarta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_86","no":84,"surname":"GABATHAT","firstName":"JESU EZEKIEL B.","course":"BSCS-1","room":"Jakarta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_87","no":85,"surname":"SERAT","firstName":"KEN JOSEPH M.","course":"BSME-1","room":"Jakarta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_89","no":87,"surname":"EJOC","firstName":"ERWIN A.","course":"BSTM-4","room":"Hongkong","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_90","no":88,"surname":"CONTE","firstName":"ALEXIS P.","course":"BSCE-1","room":"Hongkong","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_91","no":89,"surname":"ABION","firstName":"CAL KEVIN","course":"ABELS-1","room":"Hongkong","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_92","no":90,"surname":"VICENTE","firstName":"KENNETH","course":"","room":"Hongkong","remarks":"","payments":{"2026-08-11":"excused","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_94","no":92,"surname":"AMPER","firstName":"JOHN CARL T.","course":"BSAB-4","room":"Atlanta","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_95","no":93,"surname":"GASATAN","firstName":"LIM MARK D.","course":"BSCS-1","room":"Atlanta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_96","no":94,"surname":"VICERE","firstName":"JOSHUA O.","course":"BSEcon-1","room":"Atlanta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_97","no":95,"surname":"GANADE","firstName":"DHON MARL L.","course":"BSAP-1","room":"Atlanta","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_99","no":97,"surname":"RAMOS","firstName":"ED ANTONI N.","course":"BSA-4 AnSci","room":"Tokyo","remarks":"Big Brod.","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_100","no":98,"surname":"VILLANUEVA","firstName":"JAKE IVAN C.","course":"BSA-1","room":"Tokyo","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_101","no":99,"surname":"APAS","firstName":"JUSTINE","course":"BSEd-3 Filipino","room":"Tokyo","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_102","no":100,"surname":"IBAÑEZ","firstName":"GIAN E.","course":"BSA-1","room":"Tokyo","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_104","no":102,"surname":"MISTULA","firstName":"JOBERT R.","course":"BSABE-4","room":"Singapore","remarks":"Big Brod.","payments":{"2026-08-11":"excused","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_105","no":103,"surname":"BIRO","firstName":"JAN CARLO M.","course":"BSBiotech-3","room":"Singapore","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_106","no":104,"surname":"ANGELIO","firstName":"CHRISTIAN F.","course":"BSEd-3 Filipino","room":"Singapore","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_107","no":105,"surname":"ASTORGA","firstName":"ANGELO","course":"","room":"Singapore","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_108","no":106,"surname":"CIMAGALA","firstName":"KIRBY CEDRICK B.","course":"BSBiotech-1","room":"Singapore","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_109","no":107,"surname":"RUTA","firstName":"JERSON P.","course":"BSMB-1","room":"Singapore","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_110","no":108,"surname":"INGHUG","firstName":"WINDEL R.","course":"BSMB-1","room":"Singapore","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_112","no":110,"surname":"COLUBIO","firstName":"MARVIN A.","course":"BSA-4","room":"Madrid","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_113","no":111,"surname":"PAÑAMOGAN","firstName":"RIO F.","course":"BSF-2","room":"Madrid","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_114","no":112,"surname":"AYUSTE","firstName":"ISAIAH THOMAS D.","course":"BSA-1","room":"Madrid","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_115","no":113,"surname":"JOMOC","firstName":"CLARENCE","course":"","room":"Madrid","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_116","no":114,"surname":"AVELINO","firstName":"JUNREL","course":"BSF-1","room":"Madrid","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_117","no":115,"surname":"HERAMIS","firstName":"RODRIGO IAN B.","course":"BSA-1","room":"Madrid","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_119","no":117,"surname":"MATUGAS","firstName":"CLYDE P.","course":"BSHM-4","room":"Paris","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_120","no":118,"surname":"TANEO","firstName":"GRANT JASPER B.","course":"BSMath-3","room":"Paris","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_121","no":119,"surname":"CAMBRAY","firstName":"ZANE BENEDICT Z.","course":"BSEcon-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_122","no":120,"surname":"ALAO","firstName":"VINCE JAY D.","course":"BSHM-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_123","no":121,"surname":"DACAL","firstName":"LOLITO D. JR.","course":"BSHM-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_124","no":122,"surname":"ESTAYANE","firstName":"NIÑO Y.","course":"BSHM-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_125","no":123,"surname":"ELEJORDE","firstName":"LORD BRIAN R.","course":"BSA-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_126","no":124,"surname":"PERALES","firstName":"ROGER","course":"BSA-1","room":"Paris","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_128","no":126,"surname":"MALTO","firstName":"EMIL BENEDICT C.","course":"BSA-4 AnSci","room":"Melbourne","remarks":"Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_129","no":127,"surname":"MANCHING","firstName":"MARK IAN STEPHINNE E.","course":"BSFT-4","room":"Melbourne","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_130","no":128,"surname":"PUSTA","firstName":"JAY U.","course":"BSMB-3","room":"Melbourne","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_131","no":129,"surname":"PELIGRO","firstName":"JAMES AXEL J.","course":"BSN-1","room":"Melbourne","remarks":"Asst Big Brod.","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_132","no":130,"surname":"MESIAS","firstName":"ELIJAH C.","course":"BSN-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_133","no":131,"surname":"CORSIGA","firstName":"CHRISTOPHER IKE E.","course":"BSN-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_134","no":132,"surname":"NARRA","firstName":"JAN QUER GARY S.","course":"BSA-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_135","no":133,"surname":"JOYO","firstName":"GABRIEL I. JR.","course":"BSFT-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"partial","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_136","no":134,"surname":"LALOSA","firstName":"GIMUEL L.","course":"BSES-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"paid"}},{"id":"occ_137","no":135,"surname":"CAMPOS","firstName":"MARCO ADRIAN E.","course":"BSCE-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_138","no":136,"surname":"REQUITILLO","firstName":"ROMEO P. III","course":"BSMB-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"paid","2026-08-31":"unpaid"}},{"id":"occ_139","no":137,"surname":"RAFON","firstName":"ANDREW","course":"BSF-1","room":"Melbourne","remarks":"","payments":{"2026-08-11":"unpaid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_141","no":139,"surname":"BAUTISTA","firstName":"ELTON JOHN C.","course":"BSDC-4","room":"London","remarks":"Big Brod.","payments":{"2026-08-11":"excused","2026-08-17":"unpaid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_142","no":140,"surname":"SISON","firstName":"EZEQUIEL D.","course":"BSCS-1","room":"London","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"paid"}},{"id":"occ_143","no":141,"surname":"CHETCUTI","firstName":"URI V.","course":"BSME-2","room":"London","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"paid","2026-08-26":"unpaid","2026-08-31":"unpaid"}},{"id":"occ_144","no":142,"surname":"VILLALUZ","firstName":"RHONAN S.","course":"BSDC-1","room":"London","remarks":"","payments":{"2026-08-11":"paid","2026-08-17":"unpaid","2026-08-26":"paid","2026-08-31":"paid"}}],"collectionDates":["2026-08-11","2026-08-17","2026-08-26","2026-08-31"],"totals":{"2026-08-11":966,"2026-08-17":850,"2026-08-26":500,"2026-08-31":1460},"purchases":[],"currentBalance":3776,"dateAmounts":{"2026-08-11":50,"2026-08-17":50,"2026-08-26":50,"2026-08-31":50}};
 
         let appState = { isLoggedIn: false, currentView: 'occupant', occupants: [], purchases: [], collectionDates: [], totals: {}, dateAmounts: {} };
 
-        function initializeApp() {
+        function isFirebaseConfigured() {
+            return Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+        }
+
+        function setSyncStatus(text, colorClass) {
+            const el = document.getElementById('syncStatus');
+            if (!el) return;
+            el.textContent = text;
+            el.className = `text-xs mt-0.5 ${colorClass}`;
+        }
+
+        function defaultAppState(source) {
+            const data = source || SEED_DATA;
+            return {
+                isLoggedIn: sessionStorage.getItem('dormWaterLoggedIn') === 'true',
+                currentView: 'occupant',
+                occupants: data.occupants || [],
+                purchases: data.purchases || [],
+                collectionDates: data.collectionDates || [],
+                totals: data.totals || {},
+                dateAmounts: data.dateAmounts || {}
+            };
+        }
+
+        function getSharedPayload() {
+            return {
+                occupants: appState.occupants,
+                purchases: appState.purchases,
+                collectionDates: appState.collectionDates,
+                totals: appState.totals,
+                dateAmounts: appState.dateAmounts || {}
+            };
+        }
+
+        function applySharedPayload(data) {
+            if (!data) return;
+            appState.occupants = data.occupants || [];
+            appState.purchases = data.purchases || [];
+            appState.collectionDates = data.collectionDates || [];
+            appState.totals = data.totals || {};
+            appState.dateAmounts = data.dateAmounts || {};
+        }
+
+        function cacheLocally() {
+            localStorage.setItem('dormWaterApp', JSON.stringify({
+                occupants: appState.occupants,
+                purchases: appState.purchases,
+                collectionDates: appState.collectionDates,
+                totals: appState.totals,
+                dateAmounts: appState.dateAmounts
+            }));
+        }
+
+        function refreshAllUI() {
+            updateBalances();
+            if (appState.currentView === 'admin' && appState.isLoggedIn) renderAdminView();
+            const search = document.getElementById('occupantSearch');
+            if (search && search.value) search.dispatchEvent(new Event('input'));
+        }
+
+        function pushToCloud() {
+            if (!dbRef || applyingRemote) return;
+            const json = JSON.stringify(getSharedPayload());
+            if (json === lastCloudJson) return;
+            lastCloudJson = json;
+            setSyncStatus('Saving…', 'text-gray-500');
+            dbRef.set({ json, updatedAt: Date.now() })
+                .then(() => setSyncStatus('Synced across devices', 'text-green-600'))
+                .catch((err) => {
+                    console.error(err);
+                    setSyncStatus('Cloud save failed — data kept on this device', 'text-red-600');
+                });
+        }
+
+        function persistState() {
+            cacheLocally();
+            if (!dbRef) return;
+            clearTimeout(persistTimer);
+            persistTimer = setTimeout(pushToCloud, 250);
+        }
+
+        async function initializeApp() {
             const saved = localStorage.getItem('dormWaterApp');
-            appState = saved ? JSON.parse(saved) : { isLoggedIn: false, currentView: 'occupant', occupants: SEED_DATA.occupants, purchases: SEED_DATA.purchases, collectionDates: SEED_DATA.collectionDates, totals: SEED_DATA.totals, dateAmounts: SEED_DATA.dateAmounts || {} };
-            saveToLocalStorage();
+            appState = saved ? defaultAppState(JSON.parse(saved)) : defaultAppState(SEED_DATA);
+
+            if (!isFirebaseConfigured()) {
+                setSyncStatus('Local only — add Firebase config to share with other devices', 'text-amber-600');
+                showMainApp();
+                return;
+            }
+
+            try {
+                firebase.initializeApp(FIREBASE_CONFIG);
+                dbRef = firebase.database().ref(CLOUD_PATH);
+                setSyncStatus('Connecting…', 'text-gray-500');
+                const snap = await dbRef.once('value');
+                if (snap.exists() && snap.val() && snap.val().json) {
+                    lastCloudJson = snap.val().json;
+                    applySharedPayload(JSON.parse(lastCloudJson));
+                    cacheLocally();
+                } else {
+                    lastCloudJson = JSON.stringify(getSharedPayload());
+                    await dbRef.set({ json: lastCloudJson, updatedAt: Date.now() });
+                }
+                dbRef.on('value', (nextSnap) => {
+                    const val = nextSnap.val();
+                    if (!val || !val.json || val.json === lastCloudJson) return;
+                    lastCloudJson = val.json;
+                    applyingRemote = true;
+                    applySharedPayload(JSON.parse(val.json));
+                    cacheLocally();
+                    refreshAllUI();
+                    applyingRemote = false;
+                    setSyncStatus('Synced across devices', 'text-green-600');
+                });
+                setSyncStatus('Synced across devices', 'text-green-600');
+            } catch (err) {
+                console.error(err);
+                setSyncStatus('Cloud unavailable — using this device only', 'text-red-600');
+            }
+
             showMainApp();
+            if (appState.isLoggedIn) switchView('admin');
         }
 
         function openLoginScreen() { document.getElementById('loginScreen').classList.remove('hidden'); }
@@ -386,7 +526,7 @@
             const dateAmount = appState.dateAmounts[date] || 50;
             let dateTotal = appState.occupants.filter(o => o.payments[date] === 'paid').length * dateAmount;
             appState.totals[date] = dateTotal;
-            saveToLocalStorage();
+            persistState();
             renderAdminView();
         }
 
@@ -430,13 +570,13 @@
                 appState.collectionDates.forEach(d => { payments[d] = 'unpaid'; });
                 appState.occupants.push({ id: newId, no: maxNo + 1, surname, firstName, course, room, remarks, payments });
             }
-            saveToLocalStorage();
+            persistState();
             closeOccupantModal();
             renderAdminView();
         }
 
         function deleteOccupant(occupantId) {
-            if (confirm('Delete this occupant?')) { appState.occupants = appState.occupants.filter(o => o.id !== occupantId); saveToLocalStorage(); renderAdminView(); }
+            if (confirm('Delete this occupant?')) { appState.occupants = appState.occupants.filter(o => o.id !== occupantId); persistState(); renderAdminView(); }
         }
 
         function closeOccupantModal() { document.getElementById('occupantModal').classList.add('hidden'); }
@@ -466,13 +606,13 @@
                 const p = appState.purchases.find(x => x.id === id);
                 if (p) { p.date = date; p.amount = amount; }
             } else appState.purchases.push({ id: 'purch_' + Date.now(), date, amount });
-            saveToLocalStorage();
+            persistState();
             closePurchaseModal();
             renderAdminView();
         }
 
         function deletePurchase(purchaseId) {
-            if (confirm('Delete this purchase?')) { appState.purchases = appState.purchases.filter(p => p.id !== purchaseId); saveToLocalStorage(); renderAdminView(); }
+            if (confirm('Delete this purchase?')) { appState.purchases = appState.purchases.filter(p => p.id !== purchaseId); persistState(); renderAdminView(); }
         }
 
         function closePurchaseModal() { document.getElementById('purchaseModal').classList.add('hidden'); }
@@ -493,7 +633,7 @@
             appState.dateAmounts[date] = amount;
             appState.occupants.forEach(o => { o.payments[date] = 'unpaid'; });
             appState.totals[date] = 0;
-            saveToLocalStorage();
+            persistState();
             closeDateModal();
             renderAdminView();
         }
@@ -517,13 +657,11 @@
             // Recalculate totals for this date
             const dateTotal = appState.occupants.filter(o => o.payments[date] === 'paid').length * amount;
             appState.totals[date] = dateTotal;
-            saveToLocalStorage();
+            persistState();
             closeEditDateAmountModal();
             renderAdminView();
             updateBalances();
         }
-
-        function saveToLocalStorage() { localStorage.setItem('dormWaterApp', JSON.stringify(appState)); }
 
         document.getElementById('adminSearch').addEventListener('input', renderOccupantsTable);
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeOccupantModal(); closePurchaseModal(); closeDateModal(); closeEditDateAmountModal(); closeLoginScreen(); } });
