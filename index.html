@@ -279,6 +279,17 @@
             return Boolean(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.databaseURL);
         }
 
+        function escapeHtml(str) {
+            const map = {
+                '&': '&' + 'amp;',
+                '<': '&' + 'lt;',
+                '>': '&' + 'gt;',
+                '"': '&' + 'quot;',
+                "'": '&' + '#39;'
+            };
+            return String(str ?? '').replace(/[&<>"']/g, c => map[c]);
+        }
+
         function setSyncStatus() { /* sync status is intentionally hidden from the UI */ }
 
         function defaultAppState(source) {
@@ -341,11 +352,14 @@
             return normalizeSeed(SEED_DATA);
         }
 
-        function rebuildTotals(occupants, dates, dateAmounts) {
+        function rebuildTotals(occupants, dates, dateAmounts, savedTotals, seedTotals) {
             const totals = {};
             dates.forEach(date => {
                 const amount = dateAmounts[date] || 50;
-                totals[date] = occupants.filter(o => o.payments && o.payments[date] === 'paid').length * amount;
+                const stored = (savedTotals && typeof savedTotals[date] === 'number') ? savedTotals[date]
+                    : (seedTotals && typeof seedTotals[date] === 'number') ? seedTotals[date]
+                    : null;
+                totals[date] = stored !== null ? stored : occupants.filter(o => o.payments && o.payments[date] === 'paid').length * amount;
             });
             return totals;
         }
@@ -386,7 +400,7 @@
                 purchases: saved.purchases || seed.purchases || [],
                 collectionDates: dates,
                 dateAmounts,
-                totals: rebuildTotals(occupants, dates, dateAmounts),
+                totals: rebuildTotals(occupants, dates, dateAmounts, (saved && saved.totals) || {}, seed.totals),
                 rosterVersion: ROSTER_VERSION
             };
         }
@@ -552,7 +566,7 @@
                             const st = {'paid': `✓ Paid (₱${amount})`, 'unpaid': `✗ Unpaid (₱${amount})`, 'excused': `✗ Excused`, 'partial': `◐ Partial (₱${amount})`}[s];
                             return `<span class="px-2 py-1 rounded text-xs ${sc} font-semibold">${new Date(d + 'T00:00:00').toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${st}</span>`;
                         }).join('');
-                        return `<div class="border-l-4 border-blue-600 pl-4 py-4 mb-4 bg-blue-50 rounded"><h3 class="font-bold text-lg">${o.firstName} ${o.surname}</h3><p class="text-sm text-gray-600 mt-2">Room: <span class="font-semibold">${o.room}</span></p><p class="text-sm text-gray-600">Course: ${o.course || 'N/A'}</p><div class="mt-4 pt-4 border-t border-blue-200"><p class="text-sm font-semibold mb-3">Payment Status:</p><div class="grid grid-cols-2 gap-2">${paymentDetails}</div></div><div class="mt-4 pt-4 border-t border-blue-200 bg-red-50 px-3 py-2 rounded"><p class="text-sm font-bold text-red-700">💰 Pending Payment: ₱${pendingTotal}</p></div></div>`;
+                        return `<div class="border-l-4 border-blue-600 pl-4 py-4 mb-4 bg-blue-50 rounded"><h3 class="font-bold text-lg">${escapeHtml(o.firstName)} ${escapeHtml(o.surname)}</h3><p class="text-sm text-gray-600 mt-2">Room: <span class="font-semibold">${escapeHtml(o.room)}</span></p><p class="text-sm text-gray-600">Course: ${escapeHtml(o.course || 'N/A')}</p><div class="mt-4 pt-4 border-t border-blue-200"><p class="text-sm font-semibold mb-3">Payment Status:</p><div class="grid grid-cols-2 gap-2">${paymentDetails}</div></div><div class="mt-4 pt-4 border-t border-blue-200 bg-red-50 px-3 py-2 rounded"><p class="text-sm font-bold text-red-700">💰 Pending Payment: ₱${pendingTotal}</p></div></div>`;
                     }).join('');
                     result.classList.remove('hidden');
                 }
@@ -561,7 +575,6 @@
 
         function updateBalances() {
             const tc = Object.entries(appState.totals).reduce((sum, [date, count]) => {
-                const amount = appState.dateAmounts[date] || 50;
                 return sum + (typeof count === 'number' ? count : 0);
             }, 0);
             const tp = appState.purchases.reduce((s,p) => s+p.amount, 0);
@@ -607,7 +620,7 @@
             
             const filtered = appState.occupants.filter(isRealOccupant);
             const searchTerm = document.getElementById('adminSearch')?.value?.toLowerCase() || '';
-            tbody.innerHTML = filtered.filter(o => !searchTerm || o.room.toLowerCase().includes(searchTerm) || o.surname.toLowerCase().includes(searchTerm) || o.firstName.toLowerCase().includes(searchTerm)).map(o => `<tr class="hover:bg-gray-50"><td class="px-6 py-4 text-sm">${o.no}</td><td class="px-6 py-4 text-sm font-semibold">${o.surname}</td><td class="px-6 py-4 text-sm">${o.firstName}</td><td class="px-6 py-4 text-sm text-gray-600">${o.course}</td><td class="px-6 py-4 text-sm font-semibold">${o.room}</td><td class="px-6 py-4 text-sm text-gray-600">${o.remarks}</td>${appState.collectionDates.map(d => { const s = o.payments[d] || 'unpaid'; const m = {'paid': {c: 'payment-paid', t: '✓'}, 'unpaid': {c: 'payment-unpaid', t: '○'}, 'excused': {c: 'payment-excused', t: 'E'}, 'partial': {c: 'payment-partial', t: '◐'}}[s] || {c: 'payment-unpaid', t: '○'}; return `<td class="px-6 py-4"><button onclick="cyclePaymentStatus('${o.id}', '${d}')" class="payment-btn ${m.c} w-full">${m.t}</button></td>`; }).join('')}<td class="px-6 py-4"><div class="flex gap-2"><button onclick="editOccupant('${o.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600">Edit</button><button onclick="deleteOccupant('${o.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600">Del</button></div></td></tr>`).join('');
+            tbody.innerHTML = filtered.filter(o => !searchTerm || o.room.toLowerCase().includes(searchTerm) || o.surname.toLowerCase().includes(searchTerm) || o.firstName.toLowerCase().includes(searchTerm)).map(o => `<tr class="hover:bg-gray-50"><td class="px-6 py-4 text-sm">${o.no}</td><td class="px-6 py-4 text-sm font-semibold">${escapeHtml(o.surname)}</td><td class="px-6 py-4 text-sm">${escapeHtml(o.firstName)}</td><td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(o.course)}</td><td class="px-6 py-4 text-sm font-semibold">${escapeHtml(o.room)}</td><td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(o.remarks)}</td>${appState.collectionDates.map(d => { const s = o.payments[d] || 'unpaid'; const m = {'paid': {c: 'payment-paid', t: '✓'}, 'unpaid': {c: 'payment-unpaid', t: '○'}, 'excused': {c: 'payment-excused', t: 'E'}, 'partial': {c: 'payment-partial', t: '◐'}}[s] || {c: 'payment-unpaid', t: '○'}; return `<td class="px-6 py-4"><button onclick="cyclePaymentStatus('${o.id}', '${d}')" class="payment-btn ${m.c} w-full">${m.t}</button></td>`; }).join('')}<td class="px-6 py-4"><div class="flex gap-2"><button onclick="editOccupant('${o.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600">Edit</button><button onclick="deleteOccupant('${o.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600">Del</button></div></td></tr>`).join('');
         }
 
         function renderPurchasesTable() {
