@@ -22,8 +22,6 @@ python -m http.server 8080
 
 Then open `http://localhost:8080` in your browser.
 
-**Admin Password:** `dorm2026`
-
 ### Testing Safely (Without Touching Live Data)
 
 `index-test.html` uses the `dormWaterApp_TEST` Firebase path — completely isolated from the live app.
@@ -141,7 +139,7 @@ https://deploy-preview-7--yoursite.netlify.app
 
 ## 🔐 Security Notes
 
-- The admin password (`dorm2026`) is **hardcoded in client-side JavaScript** — this is NOT real security
+- The admin password is **hardcoded in client-side JavaScript** — this is NOT real security
 - Anyone can view page source (Ctrl+U) and see the password
 - Real authentication (Firebase Auth) is planned for a future phase
 

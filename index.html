@@ -263,7 +263,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script>
-        const ADMIN_PASSWORD = "dorm2026";
+        const ADMIN_PASSWORD = "dorm2026zmmh";
 
         // Paste the firebaseConfig object from Firebase Console → Project settings → Your apps.
         // Leave these empty until then; the app still works, but only on this browser.
@@ -401,11 +401,18 @@
                 const existing = byId[seedOcc.id] || byKey[occupantMatchKey(seedOcc)];
                 return {
                     ...seedOcc,
+                    ...(existing ? {
+                        surname: existing.surname,
+                        firstName: existing.firstName,
+                        course: existing.course,
+                        room: existing.room,
+                        remarks: existing.remarks
+                    } : {}),
                     no: idx + 1,
                     payments: { ...(seedOcc.payments || {}), ...((existing && existing.payments) || {}) }
                 };
             }), ...extras];
-            const dates = seed.collectionDates.length ? seed.collectionDates : (saved.collectionDates || []);
+            const dates = Array.from(new Set([...(seed.collectionDates || []), ...(saved.collectionDates || [])])).sort();
             const dateAmounts = Object.assign({}, seed.dateAmounts, saved.dateAmounts || {});
             return {
                 isLoggedIn: saved.isLoggedIn,
@@ -638,8 +645,9 @@
                 const showAll = pl.dataset.showAll === 'true';
                 const visible = showAll ? appState.purchases : appState.purchases.slice(0, MAX_VISIBLE);
                 const hiddenCount = appState.purchases.length - visible.length;
+                const hasMore = appState.purchases.length > MAX_VISIBLE;
                 pl.innerHTML = visible.map((p,i) => `<div class="flex justify-between items-center bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg"><div><p class="font-semibold text-gray-800">Purchase #${i+1}</p><p class="text-sm text-gray-600">${new Date(p.date).toLocaleDateString()}</p></div><p class="font-bold text-lg text-orange-600">₱${p.amount}</p></div>`).join('') +
-                    (hiddenCount > 0 ? `<button onclick="togglePurchases(this)" class="w-full mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg py-2 transition">${showAll ? '▲ Show Less' : '▼ Show More (' + hiddenCount + ' more)'}</button>` : '');
+                    (hasMore ? `<button onclick="togglePurchases(this)" class="w-full mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg py-2 transition">${showAll ? '▲ Show Less' : '▼ Show More (' + hiddenCount + ' more)'}</button>` : '');
             }
         }
 
