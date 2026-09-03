@@ -20,6 +20,11 @@
         tbody tr:hover .sticky-col { background: #f9fafb; }
         thead th.sticky-col { background: #f9fafb; }
         tbody td.sticky-col { box-shadow: 2px 0 4px rgba(0,0,0,0.06); }
+        @media (max-width: 768px) {
+            .sticky-col-1 { left: 0; min-width: 45px; }
+            .sticky-col-2 { left: 45px; min-width: 90px; }
+            .sticky-col-3 { position: static; min-width: auto; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
