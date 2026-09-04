@@ -1,5 +1,5 @@
 
-        const ADMIN_PASSWORD = 'zmmh2025';
+        const ADMIN_PASSWORD = 'dorm2026zmmh';
         const CLOUD_PATH = 'dormWaterApp';
         const ROSTER_VERSION = 2;
 
