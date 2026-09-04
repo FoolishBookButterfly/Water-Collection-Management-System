@@ -1,55 +1,74 @@
 # ZmMH Water Collection Management System 💧
 
-A web-based water collection payment tracking system for **Zea Mays Men's Hall (ZmMH)**. Built with vanilla HTML/CSS/JavaScript, Tailwind CSS, and Firebase Realtime Database.
+A web-based water collection payment tracking system for **Zea Mays Men's Hall (ZmMH)**. Built with Flask, Tailwind CSS, and Firebase Realtime Database.
 
 ## ✨ Features
 
-- **Occupant View** — search by name to check payment balance and history
+- **Occupant View** — search by name to check payment balance with expandable history
 - **Admin View** — manage occupants, track payments per collection date, record purchases
 - **Real-time Sync** — data syncs across devices via Firebase Realtime Database
 - **Offline-First** — data is cached in localStorage and works even without internet
 - **CSV Export** — download payment records as a spreadsheet (Excel/Google Sheets compatible)
 - **Date Management** — add/edit/delete collection dates with per-date payment amounts
+- **Modern UI** — clean, professional design with ZmMH brand colors (maroon & forest green)
 
 ## 🚀 Quick Start
 
-### Local Development
+### Prerequisites
+
+- Python 3.7+
+- Flask
+
+### Installation
 
 ```bash
-# Serve the files with a simple HTTP server
-python -m http.server 8080
+# Install Flask
+pip install flask
+
+# Run the development server
+python app.py
 ```
 
-Then open `http://localhost:8080` in your browser.
+Then open `http://localhost:5000` in your browser.
 
 ### Testing Safely (Without Touching Live Data)
 
-`index-test.html` uses the `dormWaterApp_TEST` Firebase path — completely isolated from the live app.
-
-```bash
-# Open the test copy
-http://localhost:8080/index-test.html
-```
-
-Use this for testing admin actions (adding dates, toggling payments, etc.) without affecting real data.
+Create a copy of `templates/index.html` with a modified Firebase path (`dormWaterApp_TEST`) to test without affecting live data.
 
 ## 📁 Project Structure
 
 ```
-├── index.html          # Main application (all-in-one)
-├── index-test.html     # Test copy with isolated Firebase path
-├── seed_data.json      # Seed roster data (used as fallback)
-├── assets/
-│   └── zmmh-logo.png   # Hall logo
-├── read_excel.py       # Excel reader (v1 - simple dump)
-├── read_excel_v2.py    # Excel reader (v2 - header detection)
-├── read_excel_v3.py    # Excel reader (v3 - full data extraction)
-└── record.xlsx         # Source Excel roster file
+├── app.py                  # Flask application server
+├── templates/
+│   └── index.html          # Main page template (Jinja2)
+├── static/
+│   ├── css/
+│   │   └── style.css       # Custom design system (brand colors, components)
+│   ├── js/
+│   │   └── app.js          # Application logic (Firebase, state, UI rendering)
+│   └── assets/
+│       └── zmmh-logo.png   # Hall logo
+├── seed_data.json          # Seed roster data (used as fallback)
+├── read_excel_v3.py        # Excel converter (generates seed_data.json)
+└── record.xlsx             # Source Excel roster file
 ```
+
+## 🎨 Brand Colors
+
+The UI follows the ZmMH brand identity:
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Primary (Maroon) | `#6C1600` | Primary buttons, branding, active states |
+| Secondary (Forest Green) | `#013300` | Success states, positive indicators |
+| Background (Cream) | `#FAF8F3` | Page background |
+| Surface | `#FFFFFF` | Cards, modals |
+| Danger | `#DC2626` | Delete actions, unpaid indicators |
+| Warning | `#D97706` | Partial payments |
 
 ## 🔄 Updating the Roster
 
-The roster data lives in `seed_data.json` and is also embedded in `index.html` as `SEED_DATA`.
+The roster data lives in `seed_data.json` and is also embedded in `static/js/app.js` as `SEED_DATA`.
 
 ### Workflow:
 
@@ -59,16 +78,16 @@ The roster data lives in `seed_data.json` and is also embedded in `index.html` a
    python read_excel_v3.py
    ```
    This generates a new `seed_data.json`
-3. **Update the embedded `SEED_DATA` in `index.html`:**
+3. **Update the embedded `SEED_DATA` in `static/js/app.js`:**
    - Copy the contents of `seed_data.json`
-   - Replace the `const SEED_DATA = {...}` value in `index.html`
-4. **Increment `ROSTER_VERSION`** in `index.html` (currently `2`) — this tells the app there's a new roster
+   - Replace the `const SEED_DATA = {...}` value in `static/js/app.js`
+4. **Increment `ROSTER_VERSION`** in `static/js/app.js` (currently `2`) — this tells the app there's a new roster
 
 ## ☁️ Firebase Setup
 
 ### Configuration
 
-The Firebase config is embedded in `index.html`:
+The Firebase config is embedded in `static/js/app.js`:
 
 ```js
 const firebaseConfig = {
@@ -128,14 +147,14 @@ Create a PR on GitHub — Netlify automatically generates a preview URL like:
 https://deploy-preview-7--yoursite.netlify.app
 ```
 
-**⚠️ Note:** Preview URLs connect to the **same Firebase database** as the live site. Use `index-test.html` locally for any data-changing tests.
+**⚠️ Note:** Preview URLs connect to the **same Firebase database** as the live site. Use a local copy with an isolated Firebase path for any data-changing tests.
 
 ## 🧰 Tech Stack
 
-- **HTML/CSS/JS** — no build tools needed
-- **Tailwind CSS** — via CDN
+- **Flask** — Python web server (serves templates and static files)
+- **Tailwind CSS** — via CDN with custom brand color configuration
+- **Custom CSS Design System** — Brand-aligned components in `static/css/style.css`
 - **Firebase Realtime Database** — cloud sync
-- **Firebase Local Emulator** — for local development (see `firestore-debug.log`)
 
 ## 🔐 Security Notes
 
